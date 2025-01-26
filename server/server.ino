@@ -16,7 +16,17 @@ RHReliableDatagram manager(rf95, SERVER_ADDRESS);
 // Accepting input
 const byte numChars = 32;
 char receivedChars[numChars];
-boolean newData = false;
+
+enum Mode {
+  SELF_TEST,
+  IDLE_1,
+  SENSEOR_ONLY,
+  SENSOR_TRANSMISSION,
+  TRANSMISSION_ONLY,
+  IDLE_2
+};
+
+Mode currentMode = IDLE_1;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -61,9 +71,8 @@ void loop() {
       Serial.print("RSSI: ");
       Serial.println(rf95.lastRssi(), DEC);
 
-      // Prepare a reply message
       uint8_t data[] = "Acknowledgment received";
-      // Send a reply back to the client
+
       if (manager.sendtoWait(data, sizeof(data), from)) {
         Serial.println("Sent reply");
       } else {
@@ -74,11 +83,8 @@ void loop() {
       Serial.println("Receive failed");
     }
   }
-  recvWithEndMarker();
-  showNewMessage();
-}
 
-void recvWithEndMarker() {
+  // Check for serial input to change mode
   static byte ndx = 0;
   char endMarker = '\n';
   char rc;
@@ -95,20 +101,13 @@ void recvWithEndMarker() {
     } else {
       receivedChars[ndx] = '\0';
       ndx = 0;
-      newData = true;
-      delay(1);
+
+      Serial.print("Message: ");
+      Serial.println(receivedChars);
+
+      manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
+
+      delay(50);
     }
-  }
-}
-
-void showNewMessage() {
-  if (newData == true) {
-    char msg = receivedChars[0];
-
-    Serial.print("Message: ");
-    Serial.println(msg);
-
-    delay(50);
-    newData = false;
   }
 }

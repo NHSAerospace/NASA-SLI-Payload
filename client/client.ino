@@ -37,6 +37,17 @@ RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
 // Buffer for formatted data
 char dataBuffer[RH_RF95_MAX_MESSAGE_LEN];
 
+enum Mode {
+  SELF_TEST,
+  IDLE_1,
+  SENSOR_ONLY,
+  SENSOR_TRANSMISSION,
+  TRANSMISSION_ONLY,
+  IDLE_2
+};
+
+Mode currentMode = SELF_TEST;
+
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -104,9 +115,47 @@ void setup() {
     while (true);
   }
   Serial.println("Reliable datagram init OK!");
+
+  // Run self test
+  selfTestMode();
 }
 
 void loop() {
+  switch(currentMode) {
+    case SELF_TEST:
+      currentMode = IDLE_1;
+      break;
+
+    case IDLE_1:
+      if (manager.available()) handleModeChange();
+      break;
+
+    case SENSOR_ONLY:
+      readAndLogSensors();
+      if (manager.available()) handleModeChange();
+      delay(200);
+      break;
+
+    case TRANSMISSION_ONLY:
+      transmitData();
+      if (manager.available()) handleModeChange();
+      delay(1000);
+      break;
+
+    case IDLE_2:
+      rf95.sleep();
+      delay(1000);
+      break;
+  }
+}
+
+void selfTestMode() {
+  Serial.println("Running self-test...");
+  // TODO: Impliment self testing logic
+  currentMode = IDLE_1;
+}
+
+void readAndLogSensors() {
   bmp.performReading();
   sensors_event_t adxlEvent;
   adxl.getEvent(&adxlEvent);
@@ -126,31 +175,46 @@ void loop() {
              sensorValue.un.gameRotationVector.k,
              sensorValue.un.gameRotationVector.real);
 
-    // Log to SD card
     myLog.println(dataBuffer);
     myLog.syncFile();
-
-    // Print to Serial
     Serial.println(dataBuffer);
-
-    // Send the data using RadioHead
-    if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
-      // Wait for a reply from the server
-      uint8_t len = sizeof(dataBuffer);
-      uint8_t from;
-      
-      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
-        Serial.print("Got reply from 0x");
-        Serial.print(from, HEX);
-        Serial.print(": ");
-        Serial.println(dataBuffer);
-      } else {
-        Serial.println("No reply received");
-      }
-    } else {
-      Serial.println("sendtoWait failed");
-    }
   }
+}
 
-  delay(1000);
+void transmitData() {
+  if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
+    uint8_t len = sizeof(dataBuffer);
+    uint8_t from;
+    if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
+      Serial.print("Got reply from 0x");
+      Serial.print(from, HEX);
+      Serial.print(": ");
+      Serial.println(dataBuffer);
+    } else {
+      Serial.println("No reply received");
+    }
+  } else {
+    Serial.println("sendtoWait failed");
+  }
+}
+
+void handleModeChange() {
+  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+  uint8_t len = sizeof(buf);
+  uint8_t from;
+  if (manager.recvfromAck(buf, &len, &from)) {
+    if (len > 0) {
+      switch(buf[0]) {
+        case 'S': currentMode = SELF_TEST; break;
+        case 'I': currentMode = IDLE_1; break;
+        case 'O': currentMode = SENSOR_ONLY; break;
+        case 'T': currentMode = SENSOR_TRANSMISSION; break;
+        case 'N': currentMode = TRANSMISSION_ONLY; break;
+        case 'E': currentMode = IDLE_2; break;
+      }
+      Serial.print("Mode changed to: ");
+      Serial.println((char) buf[0]);
+    }
+
+  }
 }
