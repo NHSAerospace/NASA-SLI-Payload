@@ -48,6 +48,9 @@ enum Mode {
 
 Mode currentMode = SELF_TEST;
 
+unsigned long lastRecord = 0;
+unsigned long lastTransmit = 0;
+
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -133,13 +136,17 @@ void loop() {
     case SENSOR_ONLY:
       readAndLogSensors();
       if (manager.available()) handleModeChange();
-      delay(200);
       break;
 
+    case SENSOR_TRANSMISSION:
+      readAndLogSensors();
+      transmitData();
+      if (manager.available()) handleModeChange();
+      break;
+    
     case TRANSMISSION_ONLY:
       transmitData();
       if (manager.available()) handleModeChange();
-      delay(1000);
       break;
 
     case IDLE_2:
@@ -156,45 +163,51 @@ void selfTestMode() {
 }
 
 void readAndLogSensors() {
-  bmp.performReading();
-  sensors_event_t adxlEvent;
-  adxl.getEvent(&adxlEvent);
+  if (millis() - lastRecord > 200) {
+    lastRecord = millis();
+    bmp.performReading();
+    sensors_event_t adxlEvent;
+    adxl.getEvent(&adxlEvent);
 
-  if (bno.getSensorEvent(&sensorValue)) {
-    // Format data into buffer using snprintf
-    snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
-             "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-             bmp.temperature,
-             bmp.pressure,
-             bmp.readAltitude(SEALEVELPRESSURE_HPA),
-             adxlEvent.acceleration.x,
-             adxlEvent.acceleration.y,
-             adxlEvent.acceleration.z,
-             sensorValue.un.gameRotationVector.i,
-             sensorValue.un.gameRotationVector.j,
-             sensorValue.un.gameRotationVector.k,
-             sensorValue.un.gameRotationVector.real);
+    if (bno.getSensorEvent(&sensorValue)) {
+      // Format data into buffer using snprintf
+      snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
+              "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+              bmp.temperature,
+              bmp.pressure,
+              bmp.readAltitude(SEALEVELPRESSURE_HPA),
+              adxlEvent.acceleration.x,
+              adxlEvent.acceleration.y,
+              adxlEvent.acceleration.z,
+              sensorValue.un.gameRotationVector.i,
+              sensorValue.un.gameRotationVector.j,
+              sensorValue.un.gameRotationVector.k,
+              sensorValue.un.gameRotationVector.real);
 
-    myLog.println(dataBuffer);
-    myLog.syncFile();
-    Serial.println(dataBuffer);
+      myLog.println(dataBuffer);
+      myLog.syncFile();
+      Serial.println(dataBuffer);
+    }
   }
 }
 
 void transmitData() {
-  if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
-    uint8_t len = sizeof(dataBuffer);
-    uint8_t from;
-    if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
-      Serial.print("Got reply from 0x");
-      Serial.print(from, HEX);
-      Serial.print(": ");
-      Serial.println(dataBuffer);
+  if (millis() - lastTransmit > 1000) {
+    lastTransmit = millis();
+    if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
+      uint8_t len = sizeof(dataBuffer);
+      uint8_t from;
+      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
+        Serial.print("Got reply from 0x");
+        Serial.print(from, HEX);
+        Serial.print(": ");
+        Serial.println(dataBuffer);
+      } else {
+        Serial.println("No reply received");
+      }
     } else {
-      Serial.println("No reply received");
+      Serial.println("sendtoWait failed");
     }
-  } else {
-    Serial.println("sendtoWait failed");
   }
 }
 
@@ -215,6 +228,5 @@ void handleModeChange() {
       Serial.print("Mode changed to: ");
       Serial.println((char) buf[0]);
     }
-
   }
 }
