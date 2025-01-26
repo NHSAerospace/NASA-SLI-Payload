@@ -1,13 +1,22 @@
 #include <SPI.h>
 #include <RH_RF95.h>
+#include <RHReliableDatagram.h>
 
-#define RFM95_CS    8
-#define RFM95_INT   3
-#define RFM95_RST   4
-
+#define RFM95_CS 8
+#define RFM95_INT 3
+#define RFM95_RST 4
 #define RF95_FREQ 434.0
 
+#define CLIENT_ADDRESS 1
+#define SERVER_ADDRESS 2
+
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
+RHReliableDatagram manager(rf95, SERVER_ADDRESS);
+
+// Accepting input
+const byte numChars = 32;
+char receivedChars[numChars];
+boolean newData = false;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -17,17 +26,16 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  // Initialize LoRa
   digitalWrite(RFM95_RST, LOW);
   delay(10);
   digitalWrite(RFM95_RST, HIGH);
   delay(10);
 
-  while (!rf95.init()) {
-    Serial.println("LoRa radio init failed.");
+  if (!manager.init()) {
+    Serial.println("RHReliableDatagram init failed");
     while (true);
   }
-  Serial.println("LoRa initialized successfully.");
+  Serial.println("RHReliableDatagram init OK!");
 
   if (!rf95.setFrequency(RF95_FREQ)) {
     Serial.println("setFrequency failed");
@@ -39,27 +47,68 @@ void setup() {
 }
 
 void loop() {
-  if (rf95.available()) {
-    // Should be a message for us now
+  if (manager.available()) {
     uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
     uint8_t len = sizeof(buf);
-
-    if (rf95.recv(buf, &len)) {
+    uint8_t from;
+    
+    if (manager.recvfromAck(buf, &len, &from)) {
       digitalWrite(LED_BUILTIN, HIGH);
-      RH_RF95::printBuffer("Received: ", buf, len);
-      Serial.print("Got: ");
+      Serial.print("Got message from: 0x");
+      Serial.print(from, HEX);
+      Serial.print(": ");
       Serial.println((char*)buf);
-       Serial.print("RSSI: ");
+      Serial.print("RSSI: ");
       Serial.println(rf95.lastRssi(), DEC);
 
-      // Send a reply
-      uint8_t data[] = "And hello back to you";
-      rf95.send(data, sizeof(data));
-      rf95.waitPacketSent();
-      Serial.println("Sent a reply");
+      // Prepare a reply message
+      uint8_t data[] = "Acknowledgment received";
+      // Send a reply back to the client
+      if (manager.sendtoWait(data, sizeof(data), from)) {
+        Serial.println("Sent reply");
+      } else {
+        Serial.println("sendtoWait failed");
+      }
       digitalWrite(LED_BUILTIN, LOW);
     } else {
       Serial.println("Receive failed");
     }
+  }
+  recvWithEndMarker();
+  showNewMessage();
+}
+
+void recvWithEndMarker() {
+  static byte ndx = 0;
+  char endMarker = '\n';
+  char rc;
+
+  if (Serial.available() > 0) {
+    rc = Serial.read();
+
+    if (rc != endMarker) {
+      receivedChars[ndx] = rc;
+      ndx++;
+      if (ndx >= numChars) {
+        ndx = numChars - 1;
+      }
+    } else {
+      receivedChars[ndx] = '\0';
+      ndx = 0;
+      newData = true;
+      delay(1);
+    }
+  }
+}
+
+void showNewMessage() {
+  if (newData == true) {
+    char msg = receivedChars[0];
+
+    Serial.print("Message: ");
+    Serial.println(msg);
+
+    delay(50);
+    newData = false;
   }
 }

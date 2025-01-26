@@ -6,12 +6,9 @@
 #include "SparkFun_Qwiic_OpenLog_Arduino_Library.h"
 #include <SPI.h>
 #include <RH_RF95.h>
+#include <RHReliableDatagram.h>
 
-// BMP - Altimeter
-// ADXL - Accelerometer
-// BNO - Orientation
-
-#define SEALEVELPRESSURE_HPA (1013.25) // TODO
+#define SEALEVELPRESSURE_HPA (1013.25)
 Adafruit_BMP3XX bmp;
 
 #define BNO08X_CS 10
@@ -28,10 +25,17 @@ OpenLog myLog;
 #define RFM95_CS    8
 #define RFM95_INT   3
 #define RFM95_RST   4
-
 #define RF95_FREQ 434.0
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
+
+#define CLIENT_ADDRESS 1
+#define SERVER_ADDRESS 2
+
+RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
+
+// Buffer for formatted data
+char dataBuffer[RH_RF95_MAX_MESSAGE_LEN];
 
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
@@ -55,16 +59,14 @@ void setup() {
   // bno
   if (!bno.begin_I2C()) {
     Serial.println("Could not find a valid BNO085 sensor.");
-    while (true)
-      ;
+    while (true);
   }
   bno.enableReport(SH2_GAME_ROTATION_VECTOR);
 
   // adxl
   if (!adxl.begin()) {
     Serial.println("Could not find a valid ADXL345 sensor.");
-    while (true)
-      ;
+    while (true);
   }
   adxl.setRange(ADXL345_RANGE_16_G);
 
@@ -77,7 +79,7 @@ void setup() {
   myLog.println("Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL");
   myLog.syncFile();
 
-  // LoRa
+  // Radio
   digitalWrite(RFM95_RST, LOW);
   delay(10);
   digitalWrite(RFM95_RST, HIGH);
@@ -87,7 +89,7 @@ void setup() {
     Serial.println("LoRa radio init failed.");
     while (true);
   }
-  Serial.println("LoRa initialized successfully.");
+  Serial.println("LoRa radio init OK!");
 
   if (!rf95.setFrequency(RF95_FREQ)) {
     Serial.println("setFrequency failed");
@@ -96,9 +98,13 @@ void setup() {
   Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
 
   rf95.setTxPower(23, false);
-}
 
-int16_t packetnum = 0;
+  if (!manager.init()) {
+    Serial.println("Reliable datagram init failed");
+    while (true);
+  }
+  Serial.println("Reliable datagram init OK!");
+}
 
 void loop() {
   bmp.performReading();
@@ -106,49 +112,45 @@ void loop() {
   adxl.getEvent(&adxlEvent);
 
   if (bno.getSensorEvent(&sensorValue)) {
-    // Formatting data into string
-    String data = String(bmp.temperature) + "," + String(bmp.pressure) + "," + String(bmp.readAltitude(SEALEVELPRESSURE_HPA)) + "," +
-                  String(adxlEvent.acceleration.x) + "," + String(adxlEvent.acceleration.y) + "," +
-                  String(adxlEvent.acceleration.z) + "," + String(sensorValue.un.gameRotationVector.i) + "," +
-                  String(sensorValue.un.gameRotationVector.j) + "," + String(sensorValue.un.gameRotationVector.k) + "," +
-                  String(sensorValue.un.gameRotationVector.real);
+    // Format data into buffer using snprintf
+    snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
+             "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             bmp.temperature,
+             bmp.pressure,
+             bmp.readAltitude(SEALEVELPRESSURE_HPA),
+             adxlEvent.acceleration.x,
+             adxlEvent.acceleration.y,
+             adxlEvent.acceleration.z,
+             sensorValue.un.gameRotationVector.i,
+             sensorValue.un.gameRotationVector.j,
+             sensorValue.un.gameRotationVector.k,
+             sensorValue.un.gameRotationVector.real);
 
-    // myLog.println(data);
-    // myLog.syncFile();
+    // Log to SD card
+    myLog.println(dataBuffer);
+    myLog.syncFile();
 
-    Serial.println(data);
+    // Print to Serial
+    Serial.println(dataBuffer);
 
-    // Transmit data every 2 seconds
-    char radiopacket[20] = "Hello World #      ";
-    itoa(packetnum++, radiopacket+13, 10);
-    Serial.print("Sending "); Serial.println(radiopacket);
-    radiopacket[19] = 0;
-
-    Serial.println("Sending...");
-    delay(10);
-    rf95.send((uint8_t *)radiopacket, 20);
-
-    Serial.println("Waiting for packet to complete...");
-    delay(10);
-    rf95.waitPacketSent();
-    // Now wait for a reply
-    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-    uint8_t len = sizeof(buf);
-
-    Serial.println("Waiting for reply...");
-    if (rf95.waitAvailableTimeout(1000)) {
-      // Should be a reply message for us now
-      if (rf95.recv(buf, &len)) {
-        Serial.print("Got reply: ");
-        Serial.println((char*)buf);
-        Serial.print("RSSI: ");
-        Serial.println(rf95.lastRssi(), DEC);
+    // Send the data using RadioHead
+    if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
+      // Wait for a reply from the server
+      uint8_t len = sizeof(dataBuffer);
+      uint8_t from;
+      
+      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
+        Serial.print("Got reply from 0x");
+        Serial.print(from, HEX);
+        Serial.print(": ");
+        Serial.println(dataBuffer);
       } else {
-        Serial.println("Receive failed");
+        Serial.println("No reply received");
       }
     } else {
-      Serial.println("No reply, is there a listener around?");
+      Serial.println("sendtoWait failed");
     }
   }
+
   delay(1000);
 }
