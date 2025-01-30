@@ -90,7 +90,7 @@ void setup() {
   myLog.begin();
   Serial.println("SD initialized successfully.");
 
-  myLog.println("Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL");
+  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL");
   myLog.syncFile();
 
   // Radio
@@ -173,7 +173,8 @@ void readSensors() {
   if (bno.getSensorEvent(&sensorValue)) {
     // Format data into buffer using snprintf
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
-            "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+            "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+            millis(),
             bmp.temperature,
             bmp.pressure,
             bmp.readAltitude(SEALEVELPRESSURE_HPA),
