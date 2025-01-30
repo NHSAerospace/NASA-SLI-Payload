@@ -134,17 +134,20 @@ void loop() {
       break;
 
     case SENSOR_ONLY:
-      readAndLogSensors();
+      readSensors();
+      logSensors();
       if (manager.available()) handleModeChange();
       break;
 
     case SENSOR_TRANSMISSION:
-      readAndLogSensors();
+      readSensors();
+      logSensors();
       transmitData();
       if (manager.available()) handleModeChange();
       break;
     
     case TRANSMISSION_ONLY:
+      readSensors();
       transmitData();
       if (manager.available()) handleModeChange();
       break;
@@ -162,32 +165,34 @@ void selfTestMode() {
   currentMode = IDLE_1;
 }
 
-void readAndLogSensors() {
+void readSensors() {
+  bmp.performReading();
+  sensors_event_t adxlEvent;
+  adxl.getEvent(&adxlEvent);
+
+  if (bno.getSensorEvent(&sensorValue)) {
+    // Format data into buffer using snprintf
+    snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
+            "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+            bmp.temperature,
+            bmp.pressure,
+            bmp.readAltitude(SEALEVELPRESSURE_HPA),
+            adxlEvent.acceleration.x,
+            adxlEvent.acceleration.y,
+            adxlEvent.acceleration.z,
+            sensorValue.un.gameRotationVector.i,
+            sensorValue.un.gameRotationVector.j,
+            sensorValue.un.gameRotationVector.k,
+            sensorValue.un.gameRotationVector.real);
+  }
+}
+
+void logSensors() {
   if (millis() - lastRecord > 200) {
     lastRecord = millis();
-    bmp.performReading();
-    sensors_event_t adxlEvent;
-    adxl.getEvent(&adxlEvent);
-
-    if (bno.getSensorEvent(&sensorValue)) {
-      // Format data into buffer using snprintf
-      snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
-              "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-              bmp.temperature,
-              bmp.pressure,
-              bmp.readAltitude(SEALEVELPRESSURE_HPA),
-              adxlEvent.acceleration.x,
-              adxlEvent.acceleration.y,
-              adxlEvent.acceleration.z,
-              sensorValue.un.gameRotationVector.i,
-              sensorValue.un.gameRotationVector.j,
-              sensorValue.un.gameRotationVector.k,
-              sensorValue.un.gameRotationVector.real);
-
-      myLog.println(dataBuffer);
-      myLog.syncFile();
-      Serial.println(dataBuffer);
-    }
+    myLog.println(dataBuffer);
+    myLog.syncFile();
+    Serial.println(dataBuffer);
   }
 }
 

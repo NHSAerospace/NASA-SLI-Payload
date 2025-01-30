@@ -82,32 +82,32 @@ void loop() {
     } else {
       Serial.println("Receive failed");
     }
-  }
+  } else {
+    // Check for serial input to change mode
+    static byte ndx = 0;
+    char endMarker = '\n';
+    char rc;
 
-  // Check for serial input to change mode
-  static byte ndx = 0;
-  char endMarker = '\n';
-  char rc;
+    if (Serial.available() > 0) {
+      rc = Serial.read();
 
-  if (Serial.available() > 0) {
-    rc = Serial.read();
+      if (rc != endMarker) {
+        receivedChars[ndx] = rc;
+        ndx++;
+        if (ndx >= numChars) {
+          ndx = numChars - 1;
+        }
+      } else {
+        receivedChars[ndx] = '\0';
+        ndx = 0;
 
-    if (rc != endMarker) {
-      receivedChars[ndx] = rc;
-      ndx++;
-      if (ndx >= numChars) {
-        ndx = numChars - 1;
+        Serial.print("Message: ");
+        Serial.println(receivedChars);
+
+        manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
+
       }
-    } else {
-      receivedChars[ndx] = '\0';
-      ndx = 0;
-
-      Serial.print("Message: ");
-      Serial.println(receivedChars);
-
-      manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
-
-      delay(50);
     }
   }
+  delay(50);
 }
