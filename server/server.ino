@@ -74,11 +74,12 @@ void loop() {
     
     if (manager.recvfromAck(buf, &len, &from)) {
       digitalWrite(LED_BUILTIN, HIGH);
-      Serial.print("Got message from: 0x");
-      Serial.print(from, HEX);
-      Serial.print(": ");
+      // Serial.print("Got message from: 0x");
+      // Serial.print(from, HEX);
+      // Serial.print(": ");
 
       SensorData *receivedData = (SensorData*)buf;
+      Serial.print("$");
       Serial.print(receivedData->timestamp);
       Serial.print(",");
       Serial.print(receivedData->temperature);
@@ -99,10 +100,8 @@ void loop() {
       Serial.print(",");
       Serial.print(receivedData->bno_k);
       Serial.print(",");
-      Serial.println(receivedData->bno_real);
-
-
-      Serial.print("RSSI: ");
+      Serial.print(receivedData->bno_real);
+      Serial.print(",");
       Serial.println(rf95.lastRssi(), DEC);
 
       uint8_t data[] = "Acknowledgment received";

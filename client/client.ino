@@ -63,6 +63,8 @@ Mode currentMode = SELF_TEST;
 unsigned long lastRecord = 0;
 unsigned long lastTransmit = 0;
 
+byte failureCount = 0;
+
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -173,8 +175,14 @@ void loop() {
 
 void selfTestMode() {
   Serial.println("Running self-test...");
-  // TODO: Impliment self testing logic
+  readSensors();
+  Serial.println("Successfully read from sensors");
+  logSensors();
+  Serial.println("Successfully logged sensors");
+  tansmitData();
+  Serial.println("Successfully transmitted data");
   currentMode = IDLE_1;
+  Serial.println("Successfully completed self test");
 }
 
 void readSensors() {
@@ -233,8 +241,13 @@ void transmitData() {
       } else {
         Serial.println("No reply received");
       }
+      failureCount = 0;
     } else {
       Serial.println("sendtoWait failed");
+      failureCount++;
+      if (failureCount >= 3) {
+        currentMode = IDLE_1;
+      }
     }
   }
 }
