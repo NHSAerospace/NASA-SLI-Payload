@@ -25,6 +25,8 @@ struct SensorData {
   float altitude;
   float adxl_x, adxl_y, adxl_z;
   float bno_i, bno_j, bno_k, bno_real;
+  float current_g, max_g;
+  float velocity, max_velocity;
 };
 
 enum Mode {
@@ -37,6 +39,9 @@ enum Mode {
 };
 
 Mode currentMode = IDLE_1;
+
+// ENABLE DEBUG BY ENTERING "D" INTO SERIAL
+bool DEBUG = false;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -74,40 +79,49 @@ void loop() {
     
     if (manager.recvfromAck(buf, &len, &from)) {
       digitalWrite(LED_BUILTIN, HIGH);
-      // Serial.print("Got message from: 0x");
-      // Serial.print(from, HEX);
-      // Serial.print(": ");
+      if (DEBUG) {
+        Serial.print("Got message from: 0x");
+        Serial.print(from, HEX);
+        Serial.print(": ");
+      }
 
       SensorData *receivedData = (SensorData*)buf;
-      Serial.print("$");
-      Serial.print(receivedData->timestamp);
+      Serial.print(receivedData->timestamp, 5);
       Serial.print(",");
-      Serial.print(receivedData->temperature);
+      Serial.print(receivedData->temperature, 5);
       Serial.print(",");
-      Serial.print(receivedData->pressure);
+      Serial.print(receivedData->pressure, 5);
       Serial.print(",");
-      Serial.print(receivedData->altitude);
+      Serial.print(receivedData->altitude, 5);
       Serial.print(",");
-      Serial.print(receivedData->adxl_x);
+      Serial.print(receivedData->adxl_x, 5);
       Serial.print(",");
-      Serial.print(receivedData->adxl_y);
+      Serial.print(receivedData->adxl_y, 5);
       Serial.print(",");
-      Serial.print(receivedData->adxl_z);
+      Serial.print(receivedData->adxl_z, 5);
       Serial.print(",");
-      Serial.print(receivedData->bno_i);
+      Serial.print(receivedData->bno_i, 5);
       Serial.print(",");
-      Serial.print(receivedData->bno_j);
+      Serial.print(receivedData->bno_j, 5);
       Serial.print(",");
-      Serial.print(receivedData->bno_k);
+      Serial.print(receivedData->bno_k, 5);
       Serial.print(",");
-      Serial.print(receivedData->bno_real);
+      Serial.print(receivedData->bno_real, 5);
+      Serial.print(",");
+      Serial.print(receivedData->current_g, 5);
+      Serial.print(",");
+      Serial.print(receivedData->max_g, 5);
+      Serial.print(",");
+      Serial.print(receivedData->velocity, 5);
+      Serial.print(",");
+      Serial.print(receivedData->max_velocity, 5);
       Serial.print(",");
       Serial.println(rf95.lastRssi(), DEC);
 
       uint8_t data[] = "Acknowledgment received";
 
       if (manager.sendtoWait(data, sizeof(data), from)) {
-        Serial.println("Sent reply");
+        if (DEBUG) Serial.println("Sent reply");
       } else {
         Serial.println("sendtoWait failed");
       }
@@ -134,10 +148,13 @@ void loop() {
         receivedChars[ndx] = '\0';
         ndx = 0;
 
-        Serial.print("Message: ");
-        Serial.println(receivedChars);
+        if (DEBUG) {
+          Serial.print("Message: ");
+          Serial.println(receivedChars);
+        }
 
-        manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
+        if (receivedChars[0] == 'D') DEBUG = !DEBUG;
+        else manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
       }
     }
   }

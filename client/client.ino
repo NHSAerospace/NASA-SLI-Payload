@@ -45,6 +45,8 @@ struct SensorData {
   float altitude;
   float adxl_x, adxl_y, adxl_z;
   float bno_i, bno_j, bno_k, bno_real;
+  float current_g, max_g;
+  float velocity, max_velocity;
 };
 
 SensorData sensorData;
@@ -62,6 +64,7 @@ Mode currentMode = SELF_TEST;
 
 unsigned long lastRecord = 0;
 unsigned long lastTransmit = 0;
+unsigned long currentTime = 0;
 
 byte failureCount = 0;
 
@@ -104,7 +107,7 @@ void setup() {
   myLog.begin();
   Serial.println("SD initialized successfully.");
 
-  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL");
+  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY");
   myLog.syncFile();
 
   // Radio
@@ -138,6 +141,7 @@ void setup() {
 }
 
 void loop() {
+  currentTime = millis();
   switch(currentMode) {
     case SELF_TEST:
       currentMode = IDLE_1;
@@ -175,11 +179,34 @@ void loop() {
 
 void selfTestMode() {
   Serial.println("Running self-test...");
-  readSensors();
+
+  // sensorData initialization
+  bmp.performReading();
+  sensors_event_t adxlEvent;
+  adxl.getEvent(&adxlEvent);
+
+  // This prevents zero division errors when calculating velocity
+  for (byte i = 0; i < 2; i++) {
+    if (bno.getSensorEvent(&sensorValue)) {
+      sensorData.timestamp = millis();
+      sensorData.temperature = bmp.temperature;
+      sensorData.pressure = bmp.pressure;
+      sensorData.altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+      sensorData.adxl_x = adxlEvent.acceleration.x;
+      sensorData.adxl_y = adxlEvent.acceleration.y;
+      sensorData.adxl_z = adxlEvent.acceleration.z;
+      sensorData.bno_i = sensorValue.un.gameRotationVector.i;
+      sensorData.bno_j = sensorValue.un.gameRotationVector.j;
+      sensorData.bno_k = sensorValue.un.gameRotationVector.k;
+      sensorData.bno_real = sensorValue.un.gameRotationVector.real;
+    }
+    delay(50);
+  }
+
   Serial.println("Successfully read from sensors");
   logSensors();
   Serial.println("Successfully logged sensors");
-  tansmitData();
+  transmitData();
   Serial.println("Successfully transmitted data");
   currentMode = IDLE_1;
   Serial.println("Successfully completed self test");
@@ -191,7 +218,8 @@ void readSensors() {
   adxl.getEvent(&adxlEvent);
 
   if (bno.getSensorEvent(&sensorValue)) {
-    sensorData.timestamp = millis();
+    sensorData.velocity = (bmp.readAltitude(SEALEVELPRESSURE_HPA) - sensorData.altitude) / ((currentTime - sensorData.timestamp) / 1000.0);
+    sensorData.timestamp = currentTime;
     sensorData.temperature = bmp.temperature;
     sensorData.pressure = bmp.pressure;
     sensorData.altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
@@ -202,14 +230,21 @@ void readSensors() {
     sensorData.bno_j = sensorValue.un.gameRotationVector.j;
     sensorData.bno_k = sensorValue.un.gameRotationVector.k;
     sensorData.bno_real = sensorValue.un.gameRotationVector.real;
+    sensorData.current_g = getSumVectorMagnitude(sensorData.adxl_x, sensorData.adxl_y, sensorData.adxl_z) / 9.80665;
+    if (sensorData.current_g > sensorData.max_g) sensorData.max_g = sensorData.current_g;
+    if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
   }
 }
 
+float getSumVectorMagnitude(float x, float y, float z) {
+  return sqrt(x*x + y*y + z*z);
+}
+
 void logSensors() {
-  if (millis() - lastRecord > 200) {
-    lastRecord = millis();
+  if (currentTime - lastRecord > 200) {
+    lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             "%lu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 
@@ -220,7 +255,11 @@ void logSensors() {
              sensorData.bno_i, 
              sensorData.bno_j, 
              sensorData.bno_k, 
-             sensorData.bno_real);
+             sensorData.bno_real,
+             sensorData.current_g,
+             sensorData.max_g,
+             sensorData.velocity,
+             sensorData.max_velocity);
     myLog.println(dataBuffer);
     myLog.syncFile();
     Serial.println(dataBuffer);
@@ -228,8 +267,8 @@ void logSensors() {
 }
 
 void transmitData() {
-  if (millis() - lastTransmit > 1000) {
-    lastTransmit = millis();
+  if (currentTime - lastTransmit > 1000) {
+    lastTransmit = currentTime;
     if (manager.sendtoWait((uint8_t*)&sensorData, sizeof(SensorData), SERVER_ADDRESS)) {
       uint8_t len = sizeof(SensorData);
       uint8_t from;
