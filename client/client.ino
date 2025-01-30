@@ -37,6 +37,18 @@ RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
 // Buffer for formatted data
 char dataBuffer[RH_RF95_MAX_MESSAGE_LEN];
 
+// Transmission data structure
+struct SensorData {
+  unsigned long timestamp;
+  float temperature;
+  float pressure;
+  float altitude;
+  float adxl_x, adxl_y, adxl_z;
+  float bno_i, bno_j, bno_k, bno_real;
+};
+
+SensorData sensorData;
+
 enum Mode {
   SELF_TEST,
   IDLE_1,
@@ -171,26 +183,36 @@ void readSensors() {
   adxl.getEvent(&adxlEvent);
 
   if (bno.getSensorEvent(&sensorValue)) {
-    // Format data into buffer using snprintf
-    snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN,
-            "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-            millis(),
-            bmp.temperature,
-            bmp.pressure,
-            bmp.readAltitude(SEALEVELPRESSURE_HPA),
-            adxlEvent.acceleration.x,
-            adxlEvent.acceleration.y,
-            adxlEvent.acceleration.z,
-            sensorValue.un.gameRotationVector.i,
-            sensorValue.un.gameRotationVector.j,
-            sensorValue.un.gameRotationVector.k,
-            sensorValue.un.gameRotationVector.real);
+    sensorData.timestamp = millis();
+    sensorData.temperature = bmp.temperature;
+    sensorData.pressure = bmp.pressure;
+    sensorData.altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+    sensorData.adxl_x = adxlEvent.acceleration.x;
+    sensorData.adxl_y = adxlEvent.acceleration.y;
+    sensorData.adxl_z = adxlEvent.acceleration.z;
+    sensorData.bno_i = sensorValue.un.gameRotationVector.i;
+    sensorData.bno_j = sensorValue.un.gameRotationVector.j;
+    sensorData.bno_k = sensorValue.un.gameRotationVector.k;
+    sensorData.bno_real = sensorValue.un.gameRotationVector.real;
   }
 }
 
 void logSensors() {
   if (millis() - lastRecord > 200) {
     lastRecord = millis();
+    snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
+             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             sensorData.timestamp, 
+             sensorData.temperature, 
+             sensorData.pressure, 
+             sensorData.altitude, 
+             sensorData.adxl_x, 
+             sensorData.adxl_y, 
+             sensorData.adxl_z, 
+             sensorData.bno_i, 
+             sensorData.bno_j, 
+             sensorData.bno_k, 
+             sensorData.bno_real);
     myLog.println(dataBuffer);
     myLog.syncFile();
     Serial.println(dataBuffer);
@@ -200,8 +222,8 @@ void logSensors() {
 void transmitData() {
   if (millis() - lastTransmit > 1000) {
     lastTransmit = millis();
-    if (manager.sendtoWait((uint8_t*)dataBuffer, strlen(dataBuffer), SERVER_ADDRESS)) {
-      uint8_t len = sizeof(dataBuffer);
+    if (manager.sendtoWait((uint8_t*)&sensorData, sizeof(SensorData), SERVER_ADDRESS)) {
+      uint8_t len = sizeof(SensorData);
       uint8_t from;
       if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
         Serial.print("Got reply from 0x");

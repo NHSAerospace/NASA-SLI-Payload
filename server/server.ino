@@ -17,6 +17,16 @@ RHReliableDatagram manager(rf95, SERVER_ADDRESS);
 const byte numChars = 32;
 char receivedChars[numChars];
 
+// Transmission data structure
+struct SensorData {
+  unsigned long timestamp;
+  float temperature;
+  float pressure;
+  float altitude;
+  float adxl_x, adxl_y, adxl_z;
+  float bno_i, bno_j, bno_k, bno_real;
+};
+
 enum Mode {
   SELF_TEST,
   IDLE_1,
@@ -58,7 +68,7 @@ void setup() {
 
 void loop() {
   if (manager.available()) {
-    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+    uint8_t buf[sizeof(SensorData)];
     uint8_t len = sizeof(buf);
     uint8_t from;
     
@@ -67,7 +77,31 @@ void loop() {
       Serial.print("Got message from: 0x");
       Serial.print(from, HEX);
       Serial.print(": ");
-      Serial.println((char*)buf);
+
+      SensorData *receivedData = (SensorData*)buf;
+      Serial.print(receivedData->timestamp);
+      Serial.print(",");
+      Serial.print(receivedData->temperature);
+      Serial.print(",");
+      Serial.print(receivedData->pressure);
+      Serial.print(",");
+      Serial.print(receivedData->altitude);
+      Serial.print(",");
+      Serial.print(receivedData->adxl_x);
+      Serial.print(",");
+      Serial.print(receivedData->adxl_y);
+      Serial.print(",");
+      Serial.print(receivedData->adxl_z);
+      Serial.print(",");
+      Serial.print(receivedData->bno_i);
+      Serial.print(",");
+      Serial.print(receivedData->bno_j);
+      Serial.print(",");
+      Serial.print(receivedData->bno_k);
+      Serial.print(",");
+      Serial.println(receivedData->bno_real);
+
+
       Serial.print("RSSI: ");
       Serial.println(rf95.lastRssi(), DEC);
 
@@ -105,7 +139,6 @@ void loop() {
         Serial.println(receivedChars);
 
         manager.sendtoWait((uint8_t*)receivedChars, strlen(receivedChars), CLIENT_ADDRESS);
-
       }
     }
   }
