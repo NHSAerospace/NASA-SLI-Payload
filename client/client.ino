@@ -304,6 +304,10 @@ void handleModeChange() {
         case 'T': currentMode = SENSOR_TRANSMISSION; break;
         case 'N': currentMode = TRANSMISSION_ONLY; break;
         case 'E': currentMode = IDLE_2; break;
+        case 'Z':
+          sensorData.max_g = 0;
+          sensorData.max_velocity = 0;
+          break;
       }
       Serial.print("Mode changed to: ");
       Serial.println((char) buf[0]);

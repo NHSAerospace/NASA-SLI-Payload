@@ -86,7 +86,7 @@ void loop() {
       }
 
       SensorData *receivedData = (SensorData*)buf;
-      Serial.print(receivedData->timestamp, 5);
+      Serial.print(receivedData->timestamp);
       Serial.print(",");
       Serial.print(receivedData->temperature, 5);
       Serial.print(",");
