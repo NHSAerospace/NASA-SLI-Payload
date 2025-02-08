@@ -78,6 +78,18 @@ function App() {
   ]
 
   useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dataHistory.temperature.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [dataHistory]);
+
+  useEffect(() => {
     const socket = new WebSocket('ws://localhost:8080')
 
     socket.onopen = () => {
