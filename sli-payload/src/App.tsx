@@ -38,6 +38,9 @@ interface SensorData {
   max_g: number
   velocity: number
   max_velocity: number
+  battery: number
+  rssi: number
+  snr: number
 }
 
 const modes = [
@@ -61,12 +64,16 @@ function App() {
     altitude: { timestamp: number; value: number }[];
     current_g: { timestamp: number; value: number }[];
     velocity: { timestamp: number; value: number }[];
+    rssi: { timestamp: number; value: number }[];
+    snr: { timestamp: number; value: number }[];
   }>({
     temperature: [],
     pressure: [],
     altitude: [],
     current_g: [],
-    velocity: []
+    velocity: [],
+    rssi: [],
+    snr: []
   })
 
   const variables = [
@@ -74,7 +81,9 @@ function App() {
     { label: 'Pressure (Pa)', value: 'pressure' },
     { label: 'Altitude (m)', value: 'altitude' },
     { label: 'Current G-Force (G)', value: 'current_g' },
-    { label: 'Velocity (m/s)', value: 'velocity' }
+    { label: 'Velocity (m/s)', value: 'velocity' },
+    { label: 'RSSI (dBm)', value: 'rssi' },
+    { label: 'SNR (dB)', value: 'snr' }
   ]
 
   useEffect(() => {
@@ -101,7 +110,7 @@ function App() {
         const { type, data } = JSON.parse(event.data)
         if (type === 'data') {
           const values = data.split(',').map(Number)
-          if (values.length === 16) {
+          if (values.length === 18) {  
             const newData: SensorData = {
               timestamp: values[0],
               temperature: values[1],
@@ -117,7 +126,10 @@ function App() {
               current_g: values[11],
               max_g: values[12],
               velocity: values[13],
-              max_velocity: values[14]
+              max_velocity: values[14],
+              battery: values[15],
+              rssi: values[16],
+              snr: values[17]
             }
             setSensorData(newData)
             setDataHistory(prev => ({
@@ -126,7 +138,9 @@ function App() {
               pressure: [...prev.pressure, { timestamp: newData.timestamp, value: newData.pressure }],
               altitude: [...prev.altitude, { timestamp: newData.timestamp, value: newData.altitude }],
               current_g: [...prev.current_g, { timestamp: newData.timestamp, value: newData.current_g }],
-              velocity: [...prev.velocity, { timestamp: newData.timestamp, value: newData.velocity }]
+              velocity: [...prev.velocity, { timestamp: newData.timestamp, value: newData.velocity }],
+              rssi: [...prev.rssi, { timestamp: newData.timestamp, value: newData.rssi }],
+              snr: [...prev.snr, { timestamp: newData.timestamp, value: newData.snr }]
             }))
           }
         }
@@ -223,13 +237,15 @@ function App() {
         pressure: [],
         altitude: [],
         current_g: [],
-        velocity: []
+        velocity: [],
+        rssi: [],
+        snr: []
       })
     }
     
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ command }))
-      console.log(`Sending mode command: ${command}`)
+      console.log(`Sending mode command: ${ command }`)
     }
   }
 
@@ -276,6 +292,9 @@ function App() {
                 <div className="data-item">Max G-Force: <code>{sensorData.max_g.toFixed(2)} G</code></div>
                 <div className="data-item">Velocity: <code>{sensorData.velocity.toFixed(2)} m/s</code></div>
                 <div className="data-item">Max Velocity: <code>{sensorData.max_velocity.toFixed(2)} m/s</code></div>
+                <div className="data-item">Battery: <code>{sensorData.battery.toFixed(2)} V</code></div>
+                <div className="data-item">RSSI: <code>{sensorData.rssi.toFixed(2)} dBm</code></div>
+                <div className="data-item">SNR: <code>{sensorData.snr.toFixed(2)} dB</code></div>
               </>
             ) : (
               <div className="data-item">Waiting for sensor data...</div>

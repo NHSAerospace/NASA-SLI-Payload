@@ -3,9 +3,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color: black;
-  background-color: white;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -16,4 +13,5 @@ body {
   margin: 0;
   display: flex;
   place-items: center;
+  background: #222222;
 }

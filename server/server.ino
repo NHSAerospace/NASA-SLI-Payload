@@ -7,8 +7,8 @@
 #define RFM95_RST 4
 #define RF95_FREQ 434.0
 
-#define CLIENT_ADDRESS 1
-#define SERVER_ADDRESS 2
+#define CLIENT_ADDRESS 88
+#define SERVER_ADDRESS 89
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 RHReliableDatagram manager(rf95, SERVER_ADDRESS);
@@ -27,6 +27,7 @@ struct SensorData {
   float bno_i, bno_j, bno_k, bno_real;
   float current_g, max_g;
   float velocity, max_velocity;
+  float battery;
 };
 
 enum Mode {
@@ -116,7 +117,11 @@ void loop() {
       Serial.print(",");
       Serial.print(receivedData->max_velocity, 5);
       Serial.print(",");
-      Serial.println(rf95.lastRssi(), DEC);
+      Serial.print(receivedData->battery, 5);
+      Serial.print(",");
+      Serial.print(rf95.lastRssi(), DEC);
+      Serial.print(",");
+      Serial.println(rf95.lastSNR(), DEC);
 
       uint8_t data[] = "Acknowledgment received";
 

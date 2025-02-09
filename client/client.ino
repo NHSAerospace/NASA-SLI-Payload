@@ -29,8 +29,8 @@ OpenLog myLog;
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
-#define CLIENT_ADDRESS 1
-#define SERVER_ADDRESS 2
+#define CLIENT_ADDRESS 88
+#define SERVER_ADDRESS 89
 
 RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
 
@@ -47,6 +47,7 @@ struct SensorData {
   float bno_i, bno_j, bno_k, bno_real;
   float current_g, max_g;
   float velocity, max_velocity;
+  float battery;
 };
 
 SensorData sensorData;
@@ -68,12 +69,15 @@ unsigned long currentTime = 0;
 
 byte failureCount = 0;
 
+// Battery
+#define VBATPIN A7
+float measuredvbat = 0;
+
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
   Serial.begin(9600);
-  while (!Serial);
 
   Wire.begin();
 
@@ -107,7 +111,7 @@ void setup() {
   myLog.begin();
   Serial.println("SD initialized successfully.");
 
-  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY");
+  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY");
   myLog.syncFile();
 
   // Radio
@@ -185,6 +189,8 @@ void selfTestMode() {
   sensors_event_t adxlEvent;
   adxl.getEvent(&adxlEvent);
 
+  measureBattery();
+
   // This prevents zero division errors when calculating velocity
   for (byte i = 0; i < 2; i++) {
     if (bno.getSensorEvent(&sensorValue)) {
@@ -199,8 +205,8 @@ void selfTestMode() {
       sensorData.bno_j = sensorValue.un.gameRotationVector.j;
       sensorData.bno_k = sensorValue.un.gameRotationVector.k;
       sensorData.bno_real = sensorValue.un.gameRotationVector.real;
+      sensorData.battery = measuredvbat;
     }
-    delay(50);
   }
 
   Serial.println("Successfully read from sensors");
@@ -233,7 +239,10 @@ void readSensors() {
     sensorData.current_g = getSumVectorMagnitude(sensorData.adxl_x, sensorData.adxl_y, sensorData.adxl_z) / 9.80665;
     if (sensorData.current_g > sensorData.max_g) sensorData.max_g = sensorData.current_g;
     if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
+    sensorData.battery = measuredvbat;
   }
+
+  measureBattery();
 }
 
 float getSumVectorMagnitude(float x, float y, float z) {
@@ -244,7 +253,7 @@ void logSensors() {
   if (currentTime - lastRecord > 200) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f",
+             "%lu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 
@@ -259,7 +268,8 @@ void logSensors() {
              sensorData.current_g,
              sensorData.max_g,
              sensorData.velocity,
-             sensorData.max_velocity);
+             sensorData.max_velocity,
+             sensorData.battery);
     myLog.println(dataBuffer);
     myLog.syncFile();
     Serial.println(dataBuffer);
@@ -267,12 +277,12 @@ void logSensors() {
 }
 
 void transmitData() {
-  if (currentTime - lastTransmit > 1000) {
+  if (currentTime - lastTransmit > 500) {
     lastTransmit = currentTime;
     if (manager.sendtoWait((uint8_t*)&sensorData, sizeof(SensorData), SERVER_ADDRESS)) {
       uint8_t len = sizeof(SensorData);
       uint8_t from;
-      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 2000, &from)) {
+      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 200, &from)) {
         Serial.print("Got reply from 0x");
         Serial.print(from, HEX);
         Serial.print(": ");
@@ -313,4 +323,11 @@ void handleModeChange() {
       Serial.println((char) buf[0]);
     }
   }
+}
+
+void measureBattery(void) {
+  measuredvbat = analogRead(VBATPIN);
+  measuredvbat *=2;
+  measuredvbat *=3.3;
+  measuredvbat /= 1024;
 }
