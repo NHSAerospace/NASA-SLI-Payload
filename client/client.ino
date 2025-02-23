@@ -250,7 +250,7 @@ float getSumVectorMagnitude(float x, float y, float z) {
 }
 
 void logSensors() {
-  if (currentTime - lastRecord > 200) {
+  if (currentTime - lastRecord > 50) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
              "%lu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f",
