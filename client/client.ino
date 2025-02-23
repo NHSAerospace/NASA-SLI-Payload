@@ -73,17 +73,19 @@ byte failureCount = 0;
 #define VBATPIN A7
 float measuredvbat = 0;
 
+const bool DEBUG = false;
+
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
-  Serial.begin(9600);
+  if (DEBUG) Serial.begin(9600);
 
   Wire.begin();
 
   // bmp
   if (!bmp.begin_I2C()) {
-    Serial.println("Could not find a valid BMP390 sensor.");
+    if (DEBUG) Serial.println("Could not find a valid BMP390 sensor.");
     while (true);
   }
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -93,23 +95,23 @@ void setup() {
 
   // bno
   if (!bno.begin_I2C()) {
-    Serial.println("Could not find a valid BNO085 sensor.");
+    if (DEBUG) Serial.println("Could not find a valid BNO085 sensor.");
     while (true);
   }
   bno.enableReport(SH2_GAME_ROTATION_VECTOR);
 
   // adxl
   if (!adxl.begin()) {
-    Serial.println("Could not find a valid ADXL345 sensor.");
+    if (DEBUG) Serial.println("Could not find a valid ADXL345 sensor.");
     while (true);
   }
   adxl.setRange(ADXL345_RANGE_16_G);
 
-  Serial.println("Sensors initialized successfully.");
+  if (DEBUG) Serial.println("Sensors initialized successfully.");
 
   // SD
   myLog.begin();
-  Serial.println("SD initialized successfully.");
+  if (DEBUG) Serial.println("SD initialized successfully.");
 
   myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY");
   myLog.syncFile();
@@ -124,21 +126,21 @@ void setup() {
     Serial.println("LoRa radio init failed.");
     while (true);
   }
-  Serial.println("LoRa radio init OK!");
+  if (DEBUG) Serial.println("LoRa radio init OK!");
 
   if (!rf95.setFrequency(RF95_FREQ)) {
-    Serial.println("setFrequency failed");
+    if (DEBUG) Serial.println("setFrequency failed");
     while (true);
   }
-  Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
+  if (DEBUG) Serial.print("Set Freq to: "); if (DEBUG) Serial.println(RF95_FREQ);
 
   rf95.setTxPower(23, false);
 
   if (!manager.init()) {
-    Serial.println("Reliable datagram init failed");
+    if (DEBUG) Serial.println("Reliable datagram init failed");
     while (true);
   }
-  Serial.println("Reliable datagram init OK!");
+  if (DEBUG) Serial.println("Reliable datagram init OK!");
 
   // Run self test
   selfTestMode();
@@ -209,13 +211,13 @@ void selfTestMode() {
     }
   }
 
-  Serial.println("Successfully read from sensors");
+  if (DEBUG) Serial.println("Successfully read from sensors");
   logSensors();
-  Serial.println("Successfully logged sensors");
+  if (DEBUG) Serial.println("Successfully logged sensors");
   transmitData();
-  Serial.println("Successfully transmitted data");
+  if (DEBUG) Serial.println("Successfully transmitted data");
   currentMode = IDLE_1;
-  Serial.println("Successfully completed self test");
+  if (DEBUG) Serial.println("Successfully completed self test");
 }
 
 void readSensors() {
@@ -253,7 +255,7 @@ void logSensors() {
   if (currentTime - lastRecord > 50) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f",
+             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 
@@ -272,7 +274,7 @@ void logSensors() {
              sensorData.battery);
     myLog.println(dataBuffer);
     myLog.syncFile();
-    Serial.println(dataBuffer);
+    if (DEBUG) Serial.println(dataBuffer);
   }
 }
 
@@ -282,17 +284,17 @@ void transmitData() {
     if (manager.sendtoWait((uint8_t*)&sensorData, sizeof(SensorData), SERVER_ADDRESS)) {
       uint8_t len = sizeof(SensorData);
       uint8_t from;
-      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 200, &from)) {
+      if (manager.recvfromAckTimeout((uint8_t*)dataBuffer, &len, 200, &from) && DEBUG) {
         Serial.print("Got reply from 0x");
         Serial.print(from, HEX);
         Serial.print(": ");
         Serial.println(dataBuffer);
       } else {
-        Serial.println("No reply received");
+        if (DEBUG) Serial.println("No reply received");
       }
       failureCount = 0;
     } else {
-      Serial.println("sendtoWait failed");
+      if (DEBUG) Serial.println("sendtoWait failed");
       failureCount++;
       if (failureCount >= 3) {
         currentMode = IDLE_1;
@@ -319,8 +321,8 @@ void handleModeChange() {
           sensorData.max_velocity = 0;
           break;
       }
-      Serial.print("Mode changed to: ");
-      Serial.println((char) buf[0]);
+      if (DEBUG) Serial.print("Mode changed to: ");
+      if (DEBUG) Serial.println((char) buf[0]);
     }
   }
 }
