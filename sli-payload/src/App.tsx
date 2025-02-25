@@ -112,7 +112,7 @@ function App() {
         const { type, data } = JSON.parse(event.data)
         if (type === 'data') {
           const values = data.split(',').map(Number)
-          if (values.length === 18) {  
+          if (values.length === 19) {  
             const newData: SensorData = {
               timestamp: values[0],
               temperature: values[1],
