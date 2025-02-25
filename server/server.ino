@@ -17,6 +17,17 @@ RHReliableDatagram manager(rf95, SERVER_ADDRESS);
 const byte numChars = 32;
 char receivedChars[numChars];
 
+enum Mode {
+  SELF_TEST,
+  IDLE_1,
+  SENSEOR_ONLY,
+  SENSOR_TRANSMISSION,
+  TRANSMISSION_ONLY,
+  IDLE_2
+};
+
+Mode currentMode = IDLE_1;
+
 // Transmission data structure
 struct SensorData {
   unsigned long timestamp;
@@ -28,18 +39,8 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
+  Mode mode;
 };
-
-enum Mode {
-  SELF_TEST,
-  IDLE_1,
-  SENSEOR_ONLY,
-  SENSOR_TRANSMISSION,
-  TRANSMISSION_ONLY,
-  IDLE_2
-};
-
-Mode currentMode = IDLE_1;
 
 // ENABLE DEBUG BY ENTERING "D" INTO SERIAL
 bool DEBUG = false;
@@ -118,6 +119,8 @@ void loop() {
       Serial.print(receivedData->max_velocity, 5);
       Serial.print(",");
       Serial.print(receivedData->battery, 5);
+      Serial.print(",");
+      Serial.print((int)receivedData->mode);
       Serial.print(",");
       Serial.print(rf95.lastRssi(), DEC);
       Serial.print(",");

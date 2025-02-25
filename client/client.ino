@@ -48,6 +48,7 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
+  Mode mode;
 };
 
 SensorData sensorData;
@@ -113,7 +114,7 @@ void setup() {
   myLog.begin();
   if (DEBUG) Serial.println("SD initialized successfully.");
 
-  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY");
+  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY,MODE");
   myLog.syncFile();
 
   // Radio
@@ -208,9 +209,11 @@ void selfTestMode() {
       sensorData.bno_k = sensorValue.un.gameRotationVector.k;
       sensorData.bno_real = sensorValue.un.gameRotationVector.real;
       sensorData.battery = measuredvbat;
+      sensorData.mode = currentMode;
     }
   }
 
+  readSensors();
   if (DEBUG) Serial.println("Successfully read from sensors");
   logSensors();
   if (DEBUG) Serial.println("Successfully logged sensors");
@@ -242,6 +245,7 @@ void readSensors() {
     if (sensorData.current_g > sensorData.max_g) sensorData.max_g = sensorData.current_g;
     if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
     sensorData.battery = measuredvbat;
+    sensorData.mode = currentMode;
   }
 
   measureBattery();
@@ -255,7 +259,7 @@ void logSensors() {
   if (currentTime - lastRecord > 50) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 
@@ -271,7 +275,8 @@ void logSensors() {
              sensorData.max_g,
              sensorData.velocity,
              sensorData.max_velocity,
-             sensorData.battery);
+             sensorData.battery,
+             (int)sensorData.mode);
     myLog.println(dataBuffer);
     myLog.syncFile();
     if (DEBUG) Serial.println(dataBuffer);
@@ -297,7 +302,7 @@ void transmitData() {
       if (DEBUG) Serial.println("sendtoWait failed");
       failureCount++;
       if (failureCount >= 3) {
-        currentMode = IDLE_1;
+        currentMode = SENSOR_ONLY;
       }
     }
   }
