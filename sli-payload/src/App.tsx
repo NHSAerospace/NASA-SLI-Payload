@@ -39,6 +39,7 @@ interface SensorData {
   velocity: number
   max_velocity: number
   battery: number
+  mode: number
   rssi: number
   snr: number
 }
@@ -58,6 +59,7 @@ function App() {
   const [lastReset, setLastReset] = useState<number>(0)
   const [selectedVariable1, setSelectedVariable1] = useState<string>('altitude')
   const [selectedVariable2, setSelectedVariable2] = useState<string>('altitude')
+  const [currentMode, setCurrentMode] = useState<string>('IDLE')
   const [dataHistory, setDataHistory] = useState<{
     temperature: { timestamp: number; value: number }[];
     pressure: { timestamp: number; value: number }[];
@@ -110,7 +112,7 @@ function App() {
         const { type, data } = JSON.parse(event.data)
         if (type === 'data') {
           const values = data.split(',').map(Number)
-          if (values.length === 18) {  
+          if (values.length === 19) {  
             const newData: SensorData = {
               timestamp: values[0],
               temperature: values[1],
@@ -128,10 +130,19 @@ function App() {
               velocity: values[13],
               max_velocity: values[14],
               battery: values[15],
-              rssi: values[16],
-              snr: values[17]
+              mode: values[16],
+              rssi: values[17],
+              snr: values[18]
             }
             setSensorData(newData)
+            switch (newData.mode) {
+              case 0: setCurrentMode('SELF_TEST'); break;
+              case 1: setCurrentMode('IDLE_1'); break;
+              case 2: setCurrentMode('RECORD_ONLY'); break;
+              case 3: setCurrentMode('RECORD_AND_TRANSMIT'); break;
+              case 4: setCurrentMode('TRANSMIT_ONLY'); break;
+              case 5: setCurrentMode('DISABLED'); break;
+            }
             setDataHistory(prev => ({
               ...prev,
               temperature: [...prev.temperature, { timestamp: newData.timestamp, value: newData.temperature }],
