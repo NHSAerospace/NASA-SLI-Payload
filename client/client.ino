@@ -25,7 +25,7 @@ OpenLog myLog;
 #define RFM95_CS    8
 #define RFM95_INT   3
 #define RFM95_RST   4
-#define RF95_FREQ 434.0
+#define RF95_FREQ 868.0
 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
