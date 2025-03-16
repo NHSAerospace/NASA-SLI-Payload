@@ -8,7 +8,7 @@
 #include <RH_RF95.h>
 #include <RHReliableDatagram.h>
 
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 Adafruit_BMP3XX bmp;
