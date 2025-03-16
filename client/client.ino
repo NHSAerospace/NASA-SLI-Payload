@@ -8,6 +8,8 @@
 #include <RH_RF95.h>
 #include <RHReliableDatagram.h>
 
+const bool DEBUG = true;
+
 #define SEALEVELPRESSURE_HPA (1013.25)
 Adafruit_BMP3XX bmp;
 
@@ -48,7 +50,6 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
-  Mode mode;
 };
 
 SensorData sensorData;
@@ -74,12 +75,10 @@ byte failureCount = 0;
 #define VBATPIN A7
 float measuredvbat = 0;
 
-const bool DEBUG = false;
-
 void setup() {
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
-
+  delay(500);
   if (DEBUG) Serial.begin(9600);
 
   Wire.begin();
@@ -123,11 +122,11 @@ void setup() {
   digitalWrite(RFM95_RST, HIGH);
   delay(10);
 
-  while (!rf95.init()) {
-    Serial.println("LoRa radio init failed.");
+  if (!manager.init()) {
+    if (DEBUG) Serial.println("Reliable datagram init failed");
     while (true);
   }
-  if (DEBUG) Serial.println("LoRa radio init OK!");
+  if (DEBUG) Serial.println("Reliable datagram init OK!");
 
   if (!rf95.setFrequency(RF95_FREQ)) {
     if (DEBUG) Serial.println("setFrequency failed");
@@ -136,12 +135,6 @@ void setup() {
   if (DEBUG) Serial.print("Set Freq to: "); if (DEBUG) Serial.println(RF95_FREQ);
 
   rf95.setTxPower(23, false);
-
-  if (!manager.init()) {
-    if (DEBUG) Serial.println("Reliable datagram init failed");
-    while (true);
-  }
-  if (DEBUG) Serial.println("Reliable datagram init OK!");
 
   // Run self test
   selfTestMode();
@@ -209,7 +202,6 @@ void selfTestMode() {
       sensorData.bno_k = sensorValue.un.gameRotationVector.k;
       sensorData.bno_real = sensorValue.un.gameRotationVector.real;
       sensorData.battery = measuredvbat;
-      sensorData.mode = currentMode;
     }
   }
 
@@ -245,7 +237,6 @@ void readSensors() {
     if (sensorData.current_g > sensorData.max_g) sensorData.max_g = sensorData.current_g;
     if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
     sensorData.battery = measuredvbat;
-    sensorData.mode = currentMode;
   }
 
   measureBattery();
@@ -276,7 +267,7 @@ void logSensors() {
              sensorData.velocity,
              sensorData.max_velocity,
              sensorData.battery,
-             (int)sensorData.mode);
+             getMode());
     myLog.println(dataBuffer);
     myLog.syncFile();
     if (DEBUG) Serial.println(dataBuffer);
@@ -337,4 +328,16 @@ void measureBattery(void) {
   measuredvbat *=2;
   measuredvbat *=3.3;
   measuredvbat /= 1024;
+}
+
+short getMode() {
+  switch (currentMode) {
+    case SELF_TEST: return 0;
+    case IDLE_1: return 1;
+    case SENSOR_ONLY: return 2;
+    case SENSOR_TRANSMISSION: return 3;
+    case TRANSMISSION_ONLY: return 4;
+    case IDLE_2: return 5;
+  }
+  return '!';
 }

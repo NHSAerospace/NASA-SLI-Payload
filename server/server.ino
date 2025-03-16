@@ -39,7 +39,7 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
-  Mode mode;
+  char mode;
 };
 
 // ENABLE DEBUG BY ENTERING "D" INTO SERIAL
@@ -49,7 +49,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
-
+  delay(500);
   Serial.begin(9600);
   while (!Serial);
 
@@ -90,37 +90,37 @@ void loop() {
       SensorData *receivedData = (SensorData*)buf;
       Serial.print(receivedData->timestamp);
       Serial.print(",");
-      Serial.print(receivedData->temperature, 5);
+      Serial.print(receivedData->temperature, 2);
       Serial.print(",");
-      Serial.print(receivedData->pressure, 5);
+      Serial.print(receivedData->pressure, 2);
       Serial.print(",");
-      Serial.print(receivedData->altitude, 5);
+      Serial.print(receivedData->altitude, 2);
       Serial.print(",");
-      Serial.print(receivedData->adxl_x, 5);
+      Serial.print(receivedData->adxl_x, 2);
       Serial.print(",");
-      Serial.print(receivedData->adxl_y, 5);
+      Serial.print(receivedData->adxl_y, 2);
       Serial.print(",");
-      Serial.print(receivedData->adxl_z, 5);
+      Serial.print(receivedData->adxl_z, 2);
       Serial.print(",");
-      Serial.print(receivedData->bno_i, 5);
+      Serial.print(receivedData->bno_i, 2);
       Serial.print(",");
-      Serial.print(receivedData->bno_j, 5);
+      Serial.print(receivedData->bno_j, 2);
       Serial.print(",");
-      Serial.print(receivedData->bno_k, 5);
+      Serial.print(receivedData->bno_k, 2);
       Serial.print(",");
-      Serial.print(receivedData->bno_real, 5);
+      Serial.print(receivedData->bno_real, 2);
       Serial.print(",");
-      Serial.print(receivedData->current_g, 5);
+      Serial.print(receivedData->current_g, 2);
       Serial.print(",");
-      Serial.print(receivedData->max_g, 5);
+      Serial.print(receivedData->max_g, 2);
       Serial.print(",");
-      Serial.print(receivedData->velocity, 5);
+      Serial.print(receivedData->velocity, 2);
       Serial.print(",");
-      Serial.print(receivedData->max_velocity, 5);
+      Serial.print(receivedData->max_velocity, 2);
       Serial.print(",");
-      Serial.print(receivedData->battery, 5);
+      Serial.print(receivedData->battery, 2);
       Serial.print(",");
-      Serial.print((int)receivedData->mode);
+      Serial.print(receivedData->mode);
       Serial.print(",");
       Serial.print(rf95.lastRssi(), DEC);
       Serial.print(",");
