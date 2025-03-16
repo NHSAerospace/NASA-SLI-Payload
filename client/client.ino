@@ -50,7 +50,7 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
-  char mode;
+  short mode;
 };
 
 SensorData sensorData;
@@ -239,13 +239,13 @@ void readSensors() {
     if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
     sensorData.battery = measuredvbat;
 
-    sensorData.mode = 'X';
+    sensorData.mode = 0;
     switch (currentMode) {
-      case IDLE_1: sensorData.mode = 'I'; break;
-      case SENSOR_ONLY: sensorData.mode = 'O'; break;
-      case SENSOR_TRANSMISSION: sensorData.mode = 'T'; break;
-      case TRANSMISSION_ONLY: sensorData.mode = 'N'; break;
-      case IDLE_2: sensorData.mode = 'E'; break;
+      case IDLE_1: sensorData.mode = 1; break;
+      case SENSOR_ONLY: sensorData.mode = 2; break;
+      case SENSOR_TRANSMISSION: sensorData.mode = 3; break;
+      case TRANSMISSION_ONLY: sensorData.mode = 4; break;
+      case IDLE_2: sensorData.mode = 5; break;
     }
   }
 
@@ -260,7 +260,7 @@ void logSensors() {
   if (currentTime - lastRecord > 50) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%c",
+             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 

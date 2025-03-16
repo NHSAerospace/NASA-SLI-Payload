@@ -59,7 +59,7 @@ function App() {
   const [lastReset, setLastReset] = useState<number>(0)
   const [selectedVariable1, setSelectedVariable1] = useState<string>('altitude')
   const [selectedVariable2, setSelectedVariable2] = useState<string>('altitude')
-  const [currentMode, setCurrentMode] = useState<string>('IDLE')
+  const [currentMode, setCurrentMode] = useState<string>('SELF_TEST')
   const [dataHistory, setDataHistory] = useState<{
     temperature: { timestamp: number; value: number }[];
     pressure: { timestamp: number; value: number }[];
@@ -136,12 +136,11 @@ function App() {
             }
             setSensorData(newData)
             switch (newData.mode) {
-              case 0: setCurrentMode('SELF_TEST'); break;
               case 1: setCurrentMode('IDLE_1'); break;
               case 2: setCurrentMode('RECORD_ONLY'); break;
               case 3: setCurrentMode('RECORD_AND_TRANSMIT'); break;
               case 4: setCurrentMode('TRANSMIT_ONLY'); break;
-              case 5: setCurrentMode('DISABLED'); break;
+              case 5: setCurrentMode('IDLE_2'); break;
             }
             setDataHistory(prev => ({
               ...prev,
@@ -306,6 +305,7 @@ function App() {
                 <div className="data-item">Battery: <code>{sensorData.battery.toFixed(2)} V</code></div>
                 <div className="data-item">RSSI: <code>{sensorData.rssi.toFixed(2)} dBm</code></div>
                 <div className="data-item">SNR: <code>{sensorData.snr.toFixed(2)} dB</code></div>
+                <div className="data-item">Mode: <code>{currentMode}</code></div>
               </>
             ) : (
               <div className="data-item">Waiting for sensor data...</div>

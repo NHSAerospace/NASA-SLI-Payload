@@ -39,7 +39,7 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
-  char mode;
+  short mode;
 };
 
 // ENABLE DEBUG BY ENTERING "D" INTO SERIAL
@@ -120,7 +120,7 @@ void loop() {
       Serial.print(",");
       Serial.print(receivedData->battery, 2);
       Serial.print(",");
-      Serial.print((char)receivedData->mode);
+      Serial.print((short)receivedData->mode);
       Serial.print(",");
       Serial.print(rf95.lastRssi(), DEC);
       Serial.print(",");
