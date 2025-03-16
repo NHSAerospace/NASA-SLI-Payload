@@ -120,7 +120,7 @@ void loop() {
       Serial.print(",");
       Serial.print(receivedData->battery, 2);
       Serial.print(",");
-      Serial.print(receivedData->mode);
+      Serial.print((char)receivedData->mode);
       Serial.print(",");
       Serial.print(rf95.lastRssi(), DEC);
       Serial.print(",");

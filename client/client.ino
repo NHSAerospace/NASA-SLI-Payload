@@ -50,6 +50,7 @@ struct SensorData {
   float current_g, max_g;
   float velocity, max_velocity;
   float battery;
+  char mode;
 };
 
 SensorData sensorData;
@@ -237,6 +238,15 @@ void readSensors() {
     if (sensorData.current_g > sensorData.max_g) sensorData.max_g = sensorData.current_g;
     if (sensorData.velocity > sensorData.max_velocity) sensorData.max_velocity = sensorData.velocity;
     sensorData.battery = measuredvbat;
+
+    sensorData.mode = 'X';
+    switch (currentMode) {
+      case IDLE_1: sensorData.mode = 'I'; break;
+      case SENSOR_ONLY: sensorData.mode = 'O'; break;
+      case SENSOR_TRANSMISSION: sensorData.mode = 'T'; break;
+      case TRANSMISSION_ONLY: sensorData.mode = 'N'; break;
+      case IDLE_2: sensorData.mode = 'E'; break;
+    }
   }
 
   measureBattery();
@@ -250,7 +260,7 @@ void logSensors() {
   if (currentTime - lastRecord > 50) {
     lastRecord = currentTime;
     snprintf(dataBuffer, RH_RF95_MAX_MESSAGE_LEN, 
-             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d",
+             "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%c",
              sensorData.timestamp, 
              sensorData.temperature, 
              sensorData.pressure, 
@@ -267,7 +277,7 @@ void logSensors() {
              sensorData.velocity,
              sensorData.max_velocity,
              sensorData.battery,
-             getMode());
+             sensorData.mode);
     myLog.println(dataBuffer);
     myLog.syncFile();
     if (DEBUG) Serial.println(dataBuffer);
@@ -328,16 +338,4 @@ void measureBattery(void) {
   measuredvbat *=2;
   measuredvbat *=3.3;
   measuredvbat /= 1024;
-}
-
-short getMode() {
-  switch (currentMode) {
-    case SELF_TEST: return 0;
-    case IDLE_1: return 1;
-    case SENSOR_ONLY: return 2;
-    case SENSOR_TRANSMISSION: return 3;
-    case TRANSMISSION_ONLY: return 4;
-    case IDLE_2: return 5;
-  }
-  return '!';
 }
