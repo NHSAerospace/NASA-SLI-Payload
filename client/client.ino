@@ -114,7 +114,7 @@ void setup() {
   myLog.begin();
   if (DEBUG) Serial.println("SD initialized successfully.");
 
-  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY,MODE");
+  myLog.println("Timestamp,Temperature,Pressure,Altitude,ADXL_X,ADXL_Y,ADXL_Z,BNO_I,BNO_J,BNO_K,BNO_REAL,CURRENT_G,MAX_G,VELOCITY,MAX_VELOCITY,BATTERY,MODE");
   myLog.syncFile();
 
   // Radio
@@ -179,7 +179,7 @@ void loop() {
 }
 
 void selfTestMode() {
-  Serial.println("Running self-test...");
+  if (DEBUG) Serial.println("Running self-test...");
 
   // sensorData initialization
   bmp.performReading();
